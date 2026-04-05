@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vacuum Cleaner Agent Simulation</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f1117;
+    --surface:  #181c27;
+    --surface2: #1e2334;
+    --border:   #2a3050;
+    --border2:  #3a4570;
+    --text:     #e8eaf6;
+    --muted:    #6b7399;
+    --accent:   #5b8fff;
+    --accent2:  #7c3aed;
+    --green:    #22c55e;
+    --green-bg: #052a14;
+    --green-bd: #166534;
+    --red:      #f87171;
+    --red-bg:   #2a0a0a;
+    --red-bd:   #7f1d1d;
+    --yellow:   #fbbf24;
+    --radius:   12px;
+    --radius-sm: 8px;
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* ── Background grid ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Page shell ── */
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 36px 24px 60px;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    margin-bottom: 36px;
+  }
+
+  .header-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    flex-shrink: 0;
+    box-shadow: 0 0 24px rgba(91,143,255,0.35);
+  }
+
+  .header-text h1 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #e8eaf6 40%, #5b8fff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header-text p {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  .badge {
+    display: inline-block;
+    background: rgba(91,143,255,0.12);
+    border: 1px solid rgba(91,143,255,0.3);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-top: 8px;
+    letter-spacing: 1px;
+  }
+
+  /* ── Config Panel ── */
+  .config-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .config-item { display: flex; flex-direction: column; gap: 8px; }
+
+  .config-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .config-row-inner { display: flex; align-items: center; gap: 12px; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 130px;
+    height: 4px;
+    background: var(--border2);
+    border-radius: 4px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(91,143,255,0.5);
+    transition: transform 0.15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  .range-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--accent);
+    min-width: 36px;
+  }
+
+  /* ── Rooms Grid ── */
+  .rooms-section { margin-bottom: 20px; }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .rooms-grid {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .room-card {
+    flex: 1;
+    min-width: 110px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 12px 14px;
+    text-align: center;
+    position: relative;
+    transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
+    overflow: hidden;
+  }
+
+  .room-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at top, rgba(255,255,255,0.03), transparent 70%);
+    pointer-events: none;
+  }
+
+  .room-card.dirty {
+    border-color: var(--red-bd);
+    background: var(--red-bg);
+    box-shadow: 0 0 16px rgba(248,113,113,0.1);
+  }
+
+  .room-card.clean {
+    border-color: var(--green-bd);
+    background: var(--green-bg);
+    box-shadow: 0 0 16px rgba(34,197,94,0.1);
+  }
+
+  .room-card.agent-here {
+    border-color: var(--accent);
+    background: rgba(91,143,255,0.08);
+    box-shadow: 0 0 20px rgba(91,143,255,0.25);
+  }
+
+  .agent-badge {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    padding: 4px 0;
+    text-align: center;
+    font-weight: 500;
+  }
+
+  .room-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  .room-icon { font-size: 32px; margin: 4px 0 8px; line-height: 1; display: block; }
+
+  .room-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+
+  .room-card.dirty .room-status  { color: var(--red); }
+  .room-card.clean .room-status  { color: var(--green); }
+  .room-card.agent-here .room-status { color: var(--accent); }
+
+  /* ── Buttons ── */
+  .btn-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 10px 22px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(91,143,255,0.07);
+  }
+
+  .btn:active:not(:disabled) { transform: scale(0.97); }
+
+  .btn:disabled {
+    opacity: 0.32;
+    cursor: not-allowed;
+  }
+
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(91,143,255,0.3);
+  }
+
+  .btn.primary:hover:not(:disabled) {
+    box-shadow: 0 4px 24px rgba(91,143,255,0.5);
+    transform: translateY(-1px);
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+
+  /* ── Log Panel ── */
+  .log-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .log-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .log-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .log-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .log-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .step-counter {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    background: rgba(91,143,255,0.1);
+    border: 1px solid rgba(91,143,255,0.2);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .log-body {
+    padding: 14px 18px;
+    max-height: 220px;
+    overflow-y: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+
+  .log-body::-webkit-scrollbar { width: 4px; }
+  .log-body::-webkit-scrollbar-track { background: transparent; }
+  .log-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  .log-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    animation: fadeSlide 0.25s ease;
+  }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .log-entry:last-child { border-bottom: none; }
+  .log-num { color: var(--border2); min-width: 32px; text-align: right; font-size: 11px; padding-top: 2px; }
+  .log-msg { flex: 1; }
+  .log-msg.clean  { color: var(--green); }
+  .log-msg.move   { color: var(--accent); }
+  .log-msg.done   { color: var(--yellow); font-weight: 500; }
+  .log-msg.info   { color: var(--muted); }
+
+  /* ── Stats ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 6px;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+  }
+
+  .stat-lbl {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+
+  /* ── Done Banner ── */
+  .done-banner {
+    display: none;
+    background: rgba(34,197,94,0.08);
+    border: 1px solid var(--green-bd);
+    border-radius: var(--radius);
+    padding: 16px 22px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--green);
+    text-align: center;
+    letter-spacing: 0.5px;
+    animation: fadeSlide 0.4s ease;
+  }
+
+  /* ── Code section ── */
+  .code-section {
+    margin-top: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .code-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .copy-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  pre {
+    padding: 20px 24px;
+    overflow-x: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #a9b4d1;
+  }
+
+  .kw  { color: #c792ea; }
+  .fn  { color: #82aaff; }
+  .str { color: #c3e88d; }
+  .cm  { color: #546e7a; font-style: italic; }
+  .num { color: #f78c6c; }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: repeat(3, 1fr); }
+    .config-panel { flex-direction: column; gap: 16px; }
+    header { flex-direction: column; }
+    .room-card { min-width: 80px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <header>
+    <div class="header-icon">🤖</div>
+    <div class="header-text">
+      <h1>Vacuum Cleaner Agent</h1>
+      <p>// ARTIFICIAL INTELLIGENCE — AGENT BEHAVIOR SIMULATION</p>
+      <span class="badge">BEGINNER PROJECT</span>
+    </div>
+  </header>
+
+  <!-- Config -->
+  <div class="config-panel">
+    <div class="config-item">
+      <span class="config-label">Number of Rooms</span>
+      <div class="config-row-inner">
+        <input type="range" id="roomCount" min="2" max="6" value="3" step="1">
+        <span class="range-val" id="roomCountVal">3</span>
+      </div>
+    </div>
+    <div class="config-item">
+      <span class="config-label">Dirty Chance</span>
+      <div class="config-row-inner">
+        <input type="range" id="dirtyChance" min="0" max="100" value="65" step="5">
+        <span class="range-val" id="dirtyChanceVal">65%</span>
+      </div>
+    </div>
+    <button class="btn" onclick="resetSim()" style="margin-left:auto;">
+      <span>↺</span> Randomise
+    </button>
+  </div>
+
+  <!-- Rooms -->
+  <div class="rooms-section">
+    <div class="section-label">Environment — Room States</div>
+    <div class="rooms-grid" id="roomsGrid"></div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="btn-group">
+    <button class="btn primary" id="btnStart" onclick="startSim()">
+      <span>▶</span> Start
+    </button>
+    <button class="btn" id="btnStep" onclick="stepSim()">
+      <span>⇥</span> Next Step
+    </button>
+    <button class="btn" id="btnReset" onclick="resetSim()">
+      <span>↺</span> Reset
+    </button>
+  </div>
+
+  <!-- Log -->
+  <div class="log-panel">
+    <div class="log-header">
+      <div class="log-header-left">
+        <div class="log-dot" id="logDot"></div>
+        <span class="log-title">Agent Log</span>
+      </div>
+      <span class="step-counter" id="stepCounter">Step 0</span>
+    </div>
+    <div class="log-body" id="logBody">
+      <div class="log-entry">
+        <span class="log-num">—</span>
+        <span class="log-msg info">Press ▶ Start to auto-run, or ⇥ Next Step to step through manually.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-val" id="statCleaned">0</div>
+      <div class="stat-lbl">Rooms Cleaned</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="statMoves">0</div>
+      <div class="stat-lbl">Moves Made</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="statSteps">0</div>
+      <div class="stat-lbl">Total Steps</div>
+    </div>
+  </div>
+
+  <!-- Done Banner -->
+  <div class="done-banner" id="doneBanner">
+    ✅ &nbsp; All rooms are clean! Task complete.
+  </div>
+
+  <!-- Code explanation -->
+  <div class="code-section">
+    <div class="code-header">
+      <span class="code-title">How It Works — Agent Logic</span>
+      <button class="copy-btn" onclick="copyCode()">Copy</button>
+    </div>
+    <pre id="codeBlock"><span class="cm">// The agent follows a simple perceive → decide → act loop</span>
+
+<span class="kw">function</span> <span class="fn">agentStep</span>(rooms, position) {
+  <span class="kw">const</span> current = rooms[position];
+
+  <span class="cm">// PERCEIVE: What is the state of the current room?</span>
+  <span class="kw">if</span> (current.state === <span class="str">"dirty"</span>) {
+    <span class="cm">// ACT: Clean the room</span>
+    current.state = <span class="str">"clean"</span>;
+    <span class="kw">return</span> <span class="str">"cleaned"</span>;
+  }
+
+  <span class="cm">// PERCEIVE: Room is clean — can we move?</span>
+  <span class="kw">if</span> (position &lt; rooms.length - <span class="num">1</span>) {
+    <span class="cm">// ACT: Move to next room</span>
+    <span class="kw">return</span> <span class="str">"moved"</span>;
+  }
+
+  <span class="cm">// All rooms visited and cleaned → done!</span>
+  <span class="kw">return</span> <span class="str">"done"</span>;
+}</pre>
+  </div>
+
+</div>
+
+<script>
+  // ──────────────────────────────────────────────────────
+  //  STATE
+  // ──────────────────────────────────────────────────────
+  const ROOM_NAMES = ['A','B','C','D','E','F'];
+  let rooms    = [];
+  let agentPos = 0;
+  let steps    = 0;
+  let cleaned  = 0;
+  let moves    = 0;
+  let started  = false;
+  let finished = false;
+  let autoTimer = null;
+
+  // ──────────────────────────────────────────────────────
+  //  INIT
+  // ──────────────────────────────────────────────────────
+  function initRooms() {
+    const n     = parseInt(document.getElementById('roomCount').value);
+    const pct   = parseInt(document.getElementById('dirtyChance').value) / 100;
+    rooms = ROOM_NAMES.slice(0, n).map(name => ({
+      name,
+      state: Math.random() < pct ? 'dirty' : 'clean'
+    }));
+    agentPos = 0; steps = 0; cleaned = 0; moves = 0;
+    started = false; finished = false;
+  }
+
+  // ──────────────────────────────────────────────────────
+  //  RENDER
+  // ──────────────────────────────────────────────────────
+  function renderRooms() {
+    const grid = document.getElementById('roomsGrid');
+    grid.innerHTML = '';
+    rooms.forEach((r, i) => {
+      const isAgent = (i === agentPos);
+      let cls = r.state;
+      if (isAgent) cls += ' agent-here';
+
+      const icon   = isAgent ? '🤖' : (r.state === 'dirty' ? '🗑️' : '✨');
+      const status = isAgent
+        ? (r.state === 'dirty' ? 'Agent · Dirty' : 'Agent · Clean')
+        : (r.state === 'dirty' ? 'Dirty' : 'Clean');
+
+      grid.innerHTML += `
+        <div class="room-card ${cls}">
+          ${isAgent ? '<div class="agent-badge">⬆ AGENT HERE</div>' : ''}
+          <div class="room-name" style="${isAgent?'margin-top:18px':''}">ROOM ${r.name}</div>
+          <span class="room-icon">${icon}</span>
+          <div class="room-status">${status}</div>
+        </div>`;
+    });
+  }
+
+  function updateStats() {
+    document.getElementById('statCleaned').textContent = cleaned;
+    document.getElementById('statMoves').textContent   = moves;
+    document.getElementById('statSteps').textContent   = steps;
+    document.getElementById('stepCounter').textContent = 'Step ' + steps;
+  }
+
+  // ──────────────────────────────────────────────────────
+  //  LOG
+  // ──────────────────────────────────────────────────────
+  function addLog(msg, kind) {
+    const body = document.getElementById('logBody');
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    el.innerHTML = `<span class="log-num">${steps}</span><span class="log-msg ${kind}">${msg}</span>`;
+    body.appendChild(el);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  function clearLog() {
+    document.getElementById('logBody').innerHTML = '';
+  }
+
+  // ──────────────────────────────────────────────────────
+  //  AGENT STEP LOGIC
+  // ──────────────────────────────────────────────────────
+  function doStep() {
+    if (finished) return;
+    steps++;
+    const r = rooms[agentPos];
+
+    // ACTION: Clean if dirty
+    if (r.state === 'dirty') {
+      r.state = 'clean';
+      cleaned++;
+      addLog(`🧹 Cleaned Room ${r.name} — it was dirty.`, 'clean');
+      renderRooms(); updateStats();
+      if (allClean() && agentPos === rooms.length - 1) {
+        finishUp(); return;
+      }
+      return;
+    }
+
+    // ACTION: Move to next room if possible
+    if (agentPos < rooms.length - 1) {
+      addLog(`Room ${r.name} is already clean — moving on.`, 'info');
+      agentPos++;
+      moves++;
+      steps++;
+      addLog(`➡️  Moved to Room ${rooms[agentPos].name}.`, 'move');
+      renderRooms(); updateStats();
+      return;
+    }
+
+    // DONE
+    finishUp();
+  }
+
+  function allClean() {
+    return rooms.every(r => r.state === 'clean');
+  }
+
+  function finishUp() {
+    finished = true;
+    stopAuto();
+    addLog(`✅ All rooms are clean! Finished in ${steps} steps.`, 'done');
+    document.getElementById('doneBanner').style.display = 'block';
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('btnStep').disabled  = true;
+    updateStats();
+  }
+
+  // ──────────────────────────────────────────────────────
+  //  CONTROLS
+  // ──────────────────────────────────────────────────────
+  function startSim() {
+    if (finished) return;
+    stopAuto();
+    if (!started) {
+      started = true;
+      clearLog();
+      addLog('🚀 Simulation started. Agent begins at Room A.', 'info');
+    }
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('btnStep').disabled  = true;
+    autoTimer = setInterval(() => {
+      if (finished) { stopAuto(); return; }
+      doStep();
+    }, 850);
+  }
+
+  function stepSim() {
+    if (finished) return;
+    stopAuto();
+    document.getElementById('btnStart').disabled = false;
+    if (!started) {
+      started = true;
+      clearLog();
+      addLog('🚀 Step-by-step mode. Agent starts at Room A.', 'info');
+    }
+    doStep();
+  }
+
+  function resetSim() {
+    stopAuto();
+    initRooms();
+    clearLog();
+    addLog('Simulation ready. Press ▶ Start or ⇥ Next Step.', 'info');
+    document.getElementById('doneBanner').style.display = 'none';
+    document.getElementById('btnStart').disabled = false;
+    document.getElementById('btnStep').disabled  = false;
+    renderRooms();
+    updateStats();
+  }
+
+  function stopAuto() {
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    if (!finished) {
+      document.getElementById('btnStart').disabled = false;
+    }
+  }
+
+  // ──────────────────────────────────────────────────────
+  //  SLIDERS
+  // ──────────────────────────────────────────────────────
+  document.getElementById('roomCount').addEventListener('input', function() {
+    document.getElementById('roomCountVal').textContent = this.value;
+    resetSim();
+  });
+  document.getElementById('dirtyChance').addEventListener('input', function() {
+    document.getElementById('dirtyChanceVal').textContent = this.value + '%';
+  });
+
+  // ──────────────────────────────────────────────────────
+  //  COPY CODE
+  // ──────────────────────────────────────────────────────
+  function copyCode() {
+    const text = `function agentStep(rooms, position) {
+  const current = rooms[position];
+  if (current.state === "dirty") {
+    current.state = "clean";
+    return "cleaned";
+  }
+  if (position < rooms.length - 1) {
+    return "moved";
+  }
+  return "done";
+}`;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 1800);
+    });
+  }
+
+  // ──────────────────────────────────────────────────────
+  //  BOOT
+  // ──────────────────────────────────────────────────────
+  initRooms();
+  renderRooms();
+  updateStats();
+</script>
+</body>
+</html>
